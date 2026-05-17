@@ -1,11 +1,11 @@
 {
-  "name": "forneword-rules",
+  "name": "cc-forever-rules",
   "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
   "version": "1.0.0",
   "author": {
-    "name": "forneword"
+    "name": "forever"
   },
   "license": "MIT",
   "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding"],
-  "skills": ["./skills/forneword-rules"]
+  "skills": ["./skills/cc-rules"]
 }

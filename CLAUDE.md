@@ -2,17 +2,17 @@
 
 A comprehensive behavioral rule system for Claude Code, covering anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns.
 
-Use `/forneword-rules` to load all rules into the current session.
+Use `/cc-rules` to load all rules into the current session.
 
 ## Quick Start
 
 ```bash
 # Install the plugin
-/plugin marketplace add YOUR_GITHUB_USERNAME/forneword-rules
-/plugin install forneword-rules@forneword-rules
+/plugin marketplace add YOUR_GITHUB_USERNAME/cc-rules
+/plugin install cc-rules@cc-rules
 
 # Load rules in any session
-/forneword-rules
+/cc-rules
 ```
 
 ## What's Included

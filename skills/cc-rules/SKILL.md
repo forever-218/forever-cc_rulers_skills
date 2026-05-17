@@ -1,5 +1,5 @@
 ---
-name: forneword-rules
+name: cc-rules
 description: Load comprehensive behavioral rules into the current session. Covers anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns.
 ---
 

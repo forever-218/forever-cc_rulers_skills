@@ -15,13 +15,13 @@ A behavioral rule system for Claude Code that prevents common AI coding failures
 ## Installation
 
 ```bash
-/plugin marketplace add YOUR_GITHUB_USERNAME/forneword-rules
-/plugin install forneword-rules@forneword-rules
+/plugin marketplace add YOUR_GITHUB_USERNAME/cc-rules
+/plugin install cc-rules@cc-rules
 ```
 
 Then in any session:
 ```
-/forneword-rules
+/cc-rules
 ```
 
 ## Project Integration

@@ -1,8 +1,8 @@
 {
-  "name": "forneword-rules",
-  "id": "forneword-rules",
+  "name": "cc-rules",
+  "id": "cc-rules",
   "owner": {
-    "name": "forneword"
+    "name": "forever"
   },
   "metadata": {
     "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
@@ -10,12 +10,12 @@
   },
   "plugins": [
     {
-      "name": "forneword-rules",
-      "source": "./",
+      "name": "cc-forever-rules",
+      "source": "./forever-cc_rulers_skills",
       "description": "Comprehensive behavioral rules combining project-specific guidelines with Karpathy principles: anti-stall, completion verification, simplicity first, surgical changes, goal-driven execution, and 98+ documented failure mode patterns. Derived from real interaction failures and systemically categorized.",
       "version": "1.0.0",
       "author": {
-        "name": "forneword"
+        "name": "forever"
       },
       "keywords": [
         "guidelines",
