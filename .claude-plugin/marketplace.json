@@ -1,22 +1,18 @@
 {
   "name": "cc-rules",
-  "id": "cc-rules",
+  "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
   "owner": {
     "name": "forever"
-  },
-  "metadata": {
-    "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
-    "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "cc-forever-rules",
-      "source": "./",
       "description": "Comprehensive behavioral rules combining project-specific guidelines with Karpathy principles: anti-stall, completion verification, simplicity first, surgical changes, goal-driven execution, and 98+ documented failure mode patterns. Derived from real interaction failures and systemically categorized.",
       "version": "1.0.0",
       "author": {
         "name": "forever"
       },
+      "source": "./",
       "keywords": [
         "guidelines",
         "behavioral-rules",

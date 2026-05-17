@@ -6,6 +6,8 @@
     "name": "forever"
   },
   "license": "MIT",
+  "homepage": "https://github.com/forever-218/forever-cc_rulers_skills",
+  "repository": "https://github.com/forever-218/forever-cc_rulers_skills",
   "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding"],
   "skills": ["./skills/cc-rules"]
 }
