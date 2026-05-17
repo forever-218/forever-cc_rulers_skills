@@ -1,4 +1,4 @@
-# ForNeWord Behavioral Rules
+# cc-forever-rules
 
 A behavioral rule system for Claude Code that prevents common AI coding failures — derived from systematic analysis of real interaction patterns, not theoretical assumptions.
 
@@ -8,15 +8,15 @@ A behavioral rule system for Claude Code that prevents common AI coding failures
 |---|---|
 | **Anti-Stall** | 30min+ zero-output thinking, decision loops, error retry spirals |
 | **Completion Verification** | Incomplete work, false "done", untested changes |
-| **Simplicity First** | Over-engineering, speculative abstractions, needless flexibility |
-| **Surgical Changes** | Unrelated code damage, style inconsistency, orphaned imports |
+| **Simplicity & Surgical Changes** | Over-engineering, speculative abstractions, unrelated code damage, orphaned imports |
+| **Interaction Quality** | Wrong-direction execution, symptom fixing, misreading urgency, missing context |
 | **Execution Rules** | Lazy enumeration, telling instead of doing, unclear communication |
 
 ## Installation
 
 ```bash
-/plugin marketplace add YOUR_GITHUB_USERNAME/cc-rules
-/plugin install cc-rules@cc-rules
+/plugin marketplace add forever-218/cc-rules
+/plugin install cc-forever-rules@cc-rules
 ```
 
 Then in any session:
@@ -31,8 +31,8 @@ To auto-load rules for a specific project without invoking the skill, copy the r
 ## Also See
 
 - `load_rules.sh` — Standalone script to inject rules into any session. Run `bash load_rules.sh` from any CC window.
-- `CLAUDE.md` in this repo — Merged rules from Karpathy Guidelines + ForNeWord custom patterns.
-- CC auto-memory at `<project>/.claude/.../memory/` — Full pattern catalogs (98+ documented modes).
+- `CLAUDE.md` in this repo — Quick reference for project-scope installs.
+- `README.zh.md` — 中文版文档.
 
 ## License
 
