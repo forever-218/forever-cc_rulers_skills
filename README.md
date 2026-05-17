@@ -32,7 +32,7 @@ To auto-load rules for a specific project without invoking the skill, copy the r
 
 - `load_rules.sh` — Standalone script to inject rules into any session. Run `bash load_rules.sh` from any CC window.
 - `CLAUDE.md` in this repo — Merged rules from Karpathy Guidelines + ForNeWord custom patterns.
-- Memory files at `C:\Users\29681\.claude\projects\d--godotengine-MyGame-forneword\memory\` — Full pattern catalogs (98+ documented modes).
+- CC auto-memory at `<project>/.claude/.../memory/` — Full pattern catalogs (98+ documented modes).
 
 ## License
 
