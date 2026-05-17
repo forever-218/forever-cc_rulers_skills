@@ -8,8 +8,8 @@ Use `/cc-rules` to load all rules into the current session.
 
 ```bash
 # Install the plugin
-/plugin marketplace add YOUR_GITHUB_USERNAME/cc-rules
-/plugin install cc-rules@cc-rules
+/plugin marketplace add forever-218/cc-rules
+/plugin install cc-forever-rules@cc-rules
 
 # Load rules in any session
 /cc-rules
@@ -19,7 +19,7 @@ Use `/cc-rules` to load all rules into the current session.
 
 - **Anti-Stall**: Prevents 30min+ zero-output thinking, convergence detection, error retry limits
 - **Completion Verification**: Audit all requirements before declaring done, verify after changes
-- **Simplicity First**: No speculative code, no over-engineering, rewrite when bloated
-- **Surgical Changes**: Touch only what you must, clean up your own mess
+- **Simplicity & Surgical Changes**: No speculative code, no over-engineering, touch only what you must
+- **Interaction Quality**: Ask why before executing, trace root cause, match urgency, rebuild context
 - **Execution Rules**: Direct execution, exhaustive enumeration, clarify ambiguity, prioritize by impact
 - **Detailed Patterns**: 38 interaction failures, 41 premature-exit modes, 19 unattended stall modes

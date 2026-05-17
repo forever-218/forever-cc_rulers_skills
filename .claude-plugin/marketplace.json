@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "cc-forever-rules",
-      "source": "./forever-cc_rulers_skills",
+      "source": "./",
       "description": "Comprehensive behavioral rules combining project-specific guidelines with Karpathy principles: anti-stall, completion verification, simplicity first, surgical changes, goal-driven execution, and 98+ documented failure mode patterns. Derived from real interaction failures and systemically categorized.",
       "version": "1.0.0",
       "author": {
