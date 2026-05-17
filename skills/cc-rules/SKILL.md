@@ -7,6 +7,10 @@ description: Load comprehensive behavioral rules into the current session. Cover
 
 These rules prevent common AI coding failures derived from systematic analysis of real interaction patterns.
 
+## Forced Output Protocol (overrides all other Anti-Stall rules)
+- If you detect yourself in continuous thinking, immediately output current progress (even just "analyzing X problem").
+- Not sure if timed out? Default to already timed out — output now.
+
 ## Anti-Stall
 - Every 30s of thinking must produce visible output. Zero-output cycles are prohibited.
 - Same decision evaluated 3+ times → force a choice and proceed.
