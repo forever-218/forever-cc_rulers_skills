@@ -28,7 +28,7 @@ These rules prevent common AI coding failures derived from systematic analysis o
 
 ## Completion Verification
 - Before declaring done: audit ALL requirements. If any unsatisfied, keep working.
-- After modifying code/scripts → run verification before finishing.
+- After modifying code/scripts → actively test to confirm the target functionality is complete. Only then declare the task done.
 - Before claiming impossible → scan ALL available tools and skills first.
 - For multi-step tasks, state a plan with verify steps.
 - **Fail explicitly**: When an error occurs, report it. Never silently skip — silent errors compound into worse failures.
