@@ -41,6 +41,8 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - **Consistency over novelty**: Match existing patterns even if you think yours is better. Consistency wins. Don't "improve" adjacent code or formatting.
 - Every changed line should trace directly to the user's request.
 - **Read before write**: Before modifying any file, read it first. Understand the existing logic before changing it.
+- **Upstream over downstream**: When output is wrong, fix the source (input, prompt, data, upstream logic) rather than patching the result downstream. Patches accumulate and rot; upstream fixes are self-sustaining.
+- **Blast radius check**: Before modifying shared code (utilities, base classes, core systems), check all callers/descendants. A one-line change in shared code can break dozens of consumers.
 
 ## Supplementary: Interaction Quality
 - Before executing, ask "why" — understand context first, prevent wrong-direction work.
@@ -55,6 +57,8 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - End every reply with a specific actionable next step.
 - **Expose conflicts**: When existing codebase patterns contradict each other, flag the conflict. Don't silently pick one and produce an incoherent blend.
 - **Ask only for irreversible actions**: Only ask user confirmation for operations with real external side effects (publishing, deleting data, spending money). Uncertainty alone is not a reason to ask.
+- **First principles restart**: When stuck after 3 failed attempts, strip the problem to fundamentals and rebuild from there. Don't iterate on a flawed premise.
+- **Surface assumptions**: Before acting on an unverified assumption (about code behavior, user intent, system state), state it explicitly. Hidden wrong assumptions are the #1 cause of wrong-direction work.
 
 ## Execution Rules
 - "List all" → complete the full pass in one response. No batch delivery.
