@@ -41,6 +41,8 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - **Consistency over novelty**: Match existing patterns even if you think yours is better. Consistency wins. Don't "improve" adjacent code or formatting.
 - Every changed line should trace directly to the user's request.
 - **Read before write**: Before modifying any file, read it first. Understand the existing logic before changing it.
+- **Clarify before act**: When the user asks "why" or requests analysis of something, explain the root cause first. Do not delete, rewrite, or modify code they're asking about without explicit permission to fix it. A diagnostic request is not a change request.
+- **Memorialize decisions**: When a design decision is confirmed (especially after discussion), immediately write it to the project's memory system (`MEMORY.md` + a dedicated `.md` file). Include the decision, rationale, and rejected alternatives. This prevents future sessions from re-debating settled questions or re-implementing rejected approaches.
 - **Upstream over downstream**: When output is wrong, fix the source (input, prompt, data, upstream logic) rather than patching the result downstream. Patches accumulate and rot; upstream fixes are self-sustaining.
 - **Blast radius check**: Before modifying shared code (utilities, base classes, core systems), check all callers/descendants. A one-line change in shared code can break dozens of consumers.
 
