@@ -43,6 +43,10 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - **Read before write**: Before modifying any file, read it first. Understand the existing logic before changing it.
 - **Clarify before act**: When the user asks "why" or requests analysis of something, explain the root cause first. Do not delete, rewrite, or modify code they're asking about without explicit permission to fix it. A diagnostic request is not a change request.
 - **Memorialize decisions**: When a design decision is confirmed (especially after discussion), immediately write it to the project's memory system (`MEMORY.md` + a dedicated `.md` file). Include the decision, rationale, and rejected alternatives. This prevents future sessions from re-debating settled questions or re-implementing rejected approaches.
+- **Don't regress to wrong solutions**: When the correct approach hits a roadblock, solve the roadblock — don't fall back to a known-incorrect old approach just because it "renders something." Wrong output is not progress.
+- **Correctness over convenience**: When the correct fix requires architectural changes or multiple steps, take them. Complexity is not a reason to skip correctness.
+- **Respect prior design investment**: When the user has already defined the correct solution (documentation, tables, specs), that solution is a constraint, not a suggestion. Don't abandon it at the first implementation difficulty.
+- **Wrong equals not done**: From the product's perspective, "displayed but offset" is exactly as broken as "not displayed at all." Almost-correct output has zero value. Only correct output counts as complete.
 - **Upstream over downstream**: When output is wrong, fix the source (input, prompt, data, upstream logic) rather than patching the result downstream. Patches accumulate and rot; upstream fixes are self-sustaining.
 - **Blast radius check**: Before modifying shared code (utilities, base classes, core systems), check all callers/descendants. A one-line change in shared code can break dozens of consumers.
 
