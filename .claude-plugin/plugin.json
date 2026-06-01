@@ -1,13 +1,79 @@
 {
   "name": "cc-forever-rules",
-  "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
-  "version": "1.0.0",
+  "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, 98+ documented failure mode patterns, plus automated hooks and guard agents",
+  "version": "1.1.0",
   "author": {
     "name": "forever"
   },
   "license": "MIT",
   "homepage": "https://github.com/forever-218/forever-cc_rulers_skills",
   "repository": "https://github.com/forever-218/forever-cc_rulers_skills",
-  "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding"],
-  "skills": ["./skills/cc-rules"]
+  "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding", "hooks", "guard-agents"],
+  "skills": ["./skills/cc-rules"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|mcp__godot-ai__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_use.py"]
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use.py"]
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/stop_hook.py"]
+          },
+          {
+            "type": "agent",
+            "model": "deepseek-v4-pro",
+            "prompt": "CODE REVIEW. The assistant may have modified code files this turn. Output: \"PASS: [reason]\" or \"FAIL: [issue] — [evidence]\".\n\nChecks:\n1. BUGS: Any logic errors, missing edge cases, null checks, off-by-one, uninitialized variables?\n2. TEST: Is there a corresponding test file that should be run? Name it if found.\n3. DEPENDENCY: New import/dependency introduced? Is it necessary or could existing code serve?\n4. SIMPLICITY: Did the solution introduce unnecessary abstractions, design patterns, or layers? Could it be simpler?\n5. CONSISTENCY: Does the new code match existing project patterns (naming, file structure, conventions)?\n\nBe strict. Flag everything suspicious.",
+            "timeout": 30,
+            "statusMessage": "代码审查·代码Guard"
+          },
+          {
+            "type": "agent",
+            "model": "deepseek-v4-pro",
+            "prompt": "TASK TRACKING. Review the exchange and output: \"PASS: [reason]\" or \"FAIL: [issue] — [evidence]\".\n\nChecks:\n1. COMPLETION: What did the user originally ask for? Did the assistant actually deliver all of it? List any unsatisfied requirements.\n2. DRIFT: Is the assistant working on something unrelated to the user's request? Scope creep?\n3. MEMORY: Did this turn discuss or confirm any design decision, parameter choice, or architectural rule that should be saved to project memory? If yes, suggest a one-line memory title.\n\nBe strict on #1. Incomplete delivery is the most common failure.",
+            "timeout": 30,
+            "statusMessage": "任务追踪·任务Guard"
+          },
+          {
+            "type": "agent",
+            "model": "deepseek-v4-pro",
+            "prompt": "CORRECTNESS review. Output: \"PASS: [reason]\" or \"FAIL: [rule] — [evidence]\".\n\nChecks:\n1. DON'T REGRESS: Fall back to a previously rejected or known-wrong approach because the correct path was hard?\n2. RESPECT DESIGN: Ignore or override an already documented/discussed/confirmed design decision?\n3. WRONG=DONE: Present \"almost works\" or \"displays but wrong\" as complete/successful?\n4. CORRECTNESS>CONVENIENCE: Skip a necessary architectural change because it looked harder?\n5. UPSTREAM>DOWNSTREAM: Patch downstream output instead of fixing the upstream source?\n6. VERIFY CHAIN: In pipeline A→B→C, debug/modify B while A's output was unverified/broken?\n7. SCOPE CREEP: Investigate or modify code outside the defined problem scope?\n\nBe strict. Prefer false positives.",
+            "timeout": 30,
+            "statusMessage": "正确性·正确性Guard"
+          },
+          {
+            "type": "agent",
+            "model": "deepseek-v4-pro",
+            "prompt": "BEHAVIOR review. Output: \"PASS: [reason]\" or \"FAIL: [rule] — [evidence]\".\n\nChecks:\n1. DISAGREE WHEN WRONG: User stated something technically incorrect or proposed a flawed approach — did the assistant agree without scrutiny?\n2. SURFACE ASSUMPTIONS: Act on an unverified assumption without stating it first?\n3. ANTI-RATIONALIZATION: Skip testing/verification/reading with \"it looks right\" or similar excuse?\n4. DIAGNOSTIC VS EDIT: User asked \"why\" or for analysis, but assistant deleted/rewrote code without permission to fix?\n5. FAIL EXPLICITLY: Error occurred that was silently skipped or downplayed?\n6. END WITH NEXT STEP: Does the reply end with an actionable next step? If not, flag it.\n\nBe strict. Prefer false positives.",
+            "timeout": 30,
+            "statusMessage": "行为审查·行为Guard"
+          }
+        ]
+      }
+    ]
+  }
 }
