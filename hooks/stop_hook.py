@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Stop hooks: memorialize decisions, clarify-before-act detection
-Receives session/response JSON on stdin. Always exits 0 (advisory only).
+Stop hook: gatekeeper — scans agent outputs, rejects stop on blocking violations.
+Exit 0 = allow stop. Exit 2 = reject stop, rewake Claude with violation report.
+Also handles clarify-before-act detection and memorialize reminders.
 """
 import sys, json, os, re
 
@@ -12,42 +13,110 @@ except Exception:
 
 response_text = json.dumps(data, ensure_ascii=False)
 
-# ━━━  7. Clarify-before-act: detect question + edit in same response  ━━━
-has_question = bool(re.search(r'[?？]', response_text))
-# Check if tool calls include Edit or Write
-has_edit_or_write = False
-if "tool_calls" in response_text or "tool_name" in response_text:
-    # Look for Edit or Write tool names in the response
-    if re.search(r'"tool_name"\s*:\s*"(Edit|Write)"', response_text):
-        has_edit_or_write = True
+# ═══════════════════════════════════════════════════════════════
+# Gatekeeper: scan agent FAIL outputs and decide whether to block
+# ═══════════════════════════════════════════════════════════════
 
-if has_question and has_edit_or_write:
+# Find all FAIL lines from agents
+fail_pattern = re.compile(r'(?:FAIL|fail)\s*[:：]\s*(.+?)(?:\n|$)', re.IGNORECASE)
+fails = fail_pattern.findall(response_text)
+
+# Also detect structured JSON violation outputs from agents
+violation_pattern = re.compile(r'"violations"\s*:\s*\[(.+?)\]', re.DOTALL | re.IGNORECASE)
+for vm in violation_pattern.findall(response_text):
+    if vm.strip() and vm.strip() != "[]":
+        # Extract individual violations
+        items = re.findall(r'"rule"\s*:\s*"([^"]+)"[^}]*"evidence"\s*:\s*"([^"]+)"', vm, re.IGNORECASE)
+        for rule, evidence in items:
+            fails.append(f"{rule}: {evidence}")
+
+# Blocking rules — these MUST be fixed before stopping
+BLOCK_RULES = [
+    "WRONG=DONE", "wrong equals not done", "wrong=d",
+    "COMPLETION", "completion", "task completion",
+    "REGRESS", "regress", "don't regress", "dont regress",
+    "CORRECTNESS>CONVENIENCE", "correctness over convenience",
+    "DIAGNOSTIC VS EDIT", "diagnostic vs edit",
+    "SURFACE ASSUMPTIONS", "surface assumptions",
+    "UPSTREAM>DOWNSTREAM", "upstream over downstream",
+    "SIMPLICITY", "simplest solution",
+    "FAIL EXPLICITLY", "fail explicitly",
+]
+
+block_violations = []
+warn_violations = []
+
+for f in fails:
+    f_clean = f.strip().strip('"').strip("'")
+    is_blocker = any(br.lower() in f_clean.lower() for br in BLOCK_RULES)
+    if is_blocker:
+        block_violations.append(f_clean)
+    else:
+        warn_violations.append(f_clean)
+
+# ═══════════════════════════════════════
+# DECISION: block or allow stop
+# ═══════════════════════════════════════
+
+if block_violations:
+    msg = (
+        "\n" + "█" * 62 + "\n"
+        "█  ⛔ 守卫 AGENT 检测到严重违规 — 会话被拒绝停止！\n"
+        "█  以下问题必须先修复：\n█\n"
+    )
+    for i, v in enumerate(block_violations, 1):
+        msg += f"█    {i}. {v}\n"
+    msg += (
+        "█\n"
+        "█  请立即处理上述违规，修复后重新输出。\n"
+        "█  守卫 Agent 会再次审查。全部 PASS 才允许停止。\n"
+        + "█" * 62 + "\n"
+    )
+    print(msg, flush=True)
+    sys.exit(2)  # Hard block — rewake Claude
+
+# ═══════════════════════════════════════
+# Non-blocking warnings
+# ═══════════════════════════════════════
+
+if warn_violations:
     print(
-        "\n" + "!"*55 + "\n"
-        "  ⚠️  检测到本响应同时包含提问和编辑/写入操作！\n"
-        "  规则: Clarify before act — 问完问题应先等用户回答再动手。\n"
-        "  请检查: 是否应该等用户回复后再执行修改？\n"
-        + "!"*55 + "\n",
+        "\n" + "!" * 55 + "\n"
+        "  ⚠️  守卫 Agent 发现以下提醒（不阻断停止）：\n"
+        + "".join(f"\n    • {v}" for v in warn_violations) +
+        "\n" + "!" * 55 + "\n",
         flush=True
     )
 
-# ━━━  7b. Memorialize decisions reminder  ━━━
-discussion_keywords = [
+# ═══════════════════════════════════════
+# Clarify-before-act (non-blocking)
+# ═══════════════════════════════════════
+
+has_question = bool(re.search(r'[?？]', response_text))
+has_edit_or_write = bool(re.search(r'"tool_name"\s*:\s*"(Edit|Write)"', response_text))
+
+if has_question and has_edit_or_write:
+    print(
+        "\n" + "!" * 55 + "\n"
+        "  ⚠️  Clarify before act: 同时包含提问和编辑操作。\n"
+        + "!" * 55 + "\n",
+        flush=True
+    )
+
+# ═══════════════════════════════════════
+# Memorialize reminder (non-blocking)
+# ═══════════════════════════════════════
+
+discussion_kw = [
     "决定", "方案", "设计", "架构", "architecture", "design",
     "approach", "decision", "确定", "确认", "agreed", "confirmed"
 ]
-has_discussion = any(kw in response_text.lower() for kw in discussion_keywords)
-conv_size = len(response_text)
-
-if has_discussion and conv_size > 3000:
+has_discussion = any(kw in response_text.lower() for kw in discussion_kw)
+if has_discussion and len(response_text) > 3000:
     print(
-        "\n" + "="*55 + "\n"
-        "  📝 本次对话涉及设计决策讨论。\n"
-        "  如有确认的方案，请写入项目记忆系统:\n"
-        "  - Write MEMORY.md 索引行\n"
-        "  - Write .md 记忆文件 (决策 + 理由 + 已否定的备选)\n"
-        "  这能防止未来对话重复踩坑。\n"
-        + "="*55 + "\n",
+        "\n" + "=" * 55 + "\n"
+        "  📝 本轮涉及设计决策讨论，若有确认方案请写入记忆。\n"
+        + "=" * 55 + "\n",
         flush=True
     )
 
