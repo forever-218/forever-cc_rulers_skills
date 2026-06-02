@@ -14,6 +14,38 @@ except Exception:
 response_text = json.dumps(data, ensure_ascii=False)
 
 # ═══════════════════════════════════════════════════════════════
+# 0. Code modified but not tested check
+# ═══════════════════════════════════════════════════════════════
+
+MODIFIED_FILE = os.path.expanduser("~/.claude/hook_cache/code_modified.json")
+code_was_modified = False
+if os.path.exists(MODIFIED_FILE):
+    try:
+        with open(MODIFIED_FILE) as f:
+            mods = json.load(f)
+        if mods:
+            code_was_modified = True
+    except:
+        pass
+
+# Check if this turn ran tests or checked logs
+test_indicators = [
+    "test_run", "test_manage", "logs_read",
+    "project_run", "game_eval",
+    "Editor Debugger", "Output", "no errors",
+    "编译", "通过", "passed", "PASS", "success",
+    "验证通过", "测试通过", "运行正常",
+]
+did_verify = any(ind.lower() in response_text.lower() for ind in test_indicators)
+
+untested_violations = []
+if code_was_modified and not did_verify:
+    untested_violations.append(
+        "CODE UNTESTED: 本轮修改了代码但未运行测试或检查日志。"
+        "请用 project_run 跑起来验证功能正常，或用 logs_read 检查是否有编译错误。"
+    )
+
+# ═══════════════════════════════════════════════════════════════
 # Gatekeeper: scan agent FAIL outputs and decide whether to block
 # ═══════════════════════════════════════════════════════════════
 
@@ -58,6 +90,8 @@ for f in fails:
 # DECISION: block or allow stop
 # ═══════════════════════════════════════
 
+block_violations.extend(untested_violations)
+
 if block_violations:
     msg = (
         "\n" + "█" * 62 + "\n"
@@ -72,6 +106,9 @@ if block_violations:
         "█  守卫 Agent 会再次审查。全部 PASS 才允许停止。\n"
         + "█" * 62 + "\n"
     )
+    # Clear modified flag so next round can re-check
+    if os.path.exists(MODIFIED_FILE):
+        os.remove(MODIFIED_FILE)
     print(msg, flush=True)
     sys.exit(2)  # Hard block — rewake Claude
 
