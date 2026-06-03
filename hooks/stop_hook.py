@@ -14,6 +14,13 @@ response_text = json.dumps(data, ensure_ascii=False)
 response_lower = response_text.lower()
 
 CACHE_DIR = os.path.expanduser("~/.claude/hook_cache")
+
+# ━━━ TOGGLE: sentinel file disables all agent gatekeeping ━━━
+# Create ~/.claude/hook_cache/agents_paused → all agents and gatekeeper skip
+# Delete the file → agents resume immediately
+# Alternatively, set env: AGENT_GUARD=off
+if os.path.exists(os.path.join(CACHE_DIR, "agents_paused")) or os.environ.get("AGENT_GUARD", "").lower() == "off":
+    sys.exit(0)
 os.makedirs(CACHE_DIR, exist_ok=True)
 MODIFIED_FILE = os.path.join(CACHE_DIR, "code_modified.json")
 VERIFY_STATE = os.path.join(CACHE_DIR, "verify_state.json")
