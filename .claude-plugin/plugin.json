@@ -1,15 +1,15 @@
 {
   "name": "cc-forever-rules",
   "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, 98+ documented failure mode patterns, plus automated hooks and guard agents",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "forever"
   },
   "license": "MIT",
   "homepage": "https://github.com/forever-218/forever-cc_rulers_skills",
   "repository": "https://github.com/forever-218/forever-cc_rulers_skills",
-  "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding", "hooks", "guard-agents"],
-  "skills": ["./skills/cc-rules"],
+  "keywords": ["guidelines", "behavioral-rules", "anti-stall", "coding", "hooks", "guard-agents", "mcp-coordination", "reasoning"],
+  "skills": ["./skills/cc-rules", "./skills/reasoning-tool-selector"],
   "hooks": {
     "PreToolUse": [
       {

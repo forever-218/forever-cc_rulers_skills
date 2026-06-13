@@ -38,6 +38,7 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - No features beyond what was asked. No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
 - If 200 lines could be 50, rewrite it.
+- **Simplest solution first**: Choose the simplest approach that solves the problem. No design patterns, abstractions, or architectural layers unless they address a real, present need. No "we might need this later" code. If two solutions both work, pick the simpler one.
 - **Consistency over novelty**: Match existing patterns even if you think yours is better. Consistency wins. Don't "improve" adjacent code or formatting.
 - Every changed line should trace directly to the user's request.
 - **Read before write**: Before modifying any file, read it first. Understand the existing logic before changing it.
@@ -47,6 +48,9 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - **Correctness over convenience**: When the correct fix requires architectural changes or multiple steps, take them. Complexity is not a reason to skip correctness.
 - **Respect prior design investment**: When the user has already defined the correct solution (documentation, tables, specs), that solution is a constraint, not a suggestion. Don't abandon it at the first implementation difficulty.
 - **Wrong equals not done**: From the product's perspective, "displayed but offset" is exactly as broken as "not displayed at all." Almost-correct output has zero value. Only correct output counts as complete.
+- **Verify every link in the chain**: In a pipeline (A→B→C), verify A's output is correct before debugging B with broken A output. Don't fix downstream when upstream is wrong. Trust each component only after verification, not because it "should be fine."
+- **Debug within defined scope**: Before debugging, define the boundary: which module/layer is the problem in? Investigate only within that scope. Full coverage within the scope, zero exploration outside it. Don't let rendering bugs lead you into rewriting world generation.
+- **Output intermediate values, don't trust appearances**: Don't diagnose by looking at the final visual result and guessing. Add instrumentation (print, log, inspect) at each step. Numbers don't lie; visual effects do. Concrete data over visual impression.
 - **Upstream over downstream**: When output is wrong, fix the source (input, prompt, data, upstream logic) rather than patching the result downstream. Patches accumulate and rot; upstream fixes are self-sustaining.
 - **Blast radius check**: Before modifying shared code (utilities, base classes, core systems), check all callers/descendants. A one-line change in shared code can break dozens of consumers.
 
@@ -73,6 +77,7 @@ These rules prevent common AI coding failures derived from systematic analysis o
 - Multiple interpretations exist → present them, don't pick silently.
 - Bad news → state directly. No softening.
 - User suggestion → treat as one input, evaluate all, give recommendation.
+- **Disagree when the user is wrong**: When the user states something technically incorrect or proposes a flawed approach, politely disagree and explain why. Do not agree with wrong statements to avoid friction. Correctness over comfort. Being corrected is more valuable than being agreed with.
 - Yes/no question → answer directly first, then offer to elaborate.
 - Multiple tasks → prioritize by user impact.
 - Unsure → say "let me check", not "that should work".
