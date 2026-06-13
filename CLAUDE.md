@@ -17,9 +17,19 @@ Use `/cc-rules` to load all rules into the current session.
 
 ## What's Included
 
-- **Anti-Stall**: Prevents 30min+ zero-output thinking, convergence detection, error retry limits
-- **Completion Verification**: Audit all requirements before declaring done, verify after changes
-- **Simplicity & Surgical Changes**: No speculative code, no over-engineering, touch only what you must
-- **Interaction Quality**: Ask why before executing, trace root cause, match urgency, rebuild context
-- **Execution Rules**: Direct execution, exhaustive enumeration, clarify ambiguity, prioritize by impact
-- **Detailed Patterns**: 38 interaction failures, 41 premature-exit modes, 19 unattended stall modes
+### Skills
+- **cc-rules**: 98+ behavioral rules — anti-stall, completion verification, simplicity, surgical changes
+- **reasoning-tool-selector** (v1.2.0): Generic MCP coordination pipeline — self-critique, reasoning tool selection, API doc discipline
+
+### Hooks
+- **pre_tool_use.py**: Read-before-write enforcement, blast-radius checks, destructive command guard, Godot play-state detection
+- **post_tool_use.py**: Read-cache tracking, GDScript syntax validation, code-modification tracking, repeat-error detection
+- **stop_hook.py**: Gatekeeper engine — agent FAIL output scanning, test verification loop, clarify-before-act detection, behavioral blocking rules
+- **session_start.py**: Mandatory pipeline injection before model starts thinking
+
+### Guard Agents
+4 stop-hook agents for automated review:
+- **代码审查**: Bug detection, test coverage, dependency check, simplicity audit
+- **任务追踪**: Completion audit, scope creep detection, memory save suggestions
+- **正确性**: Regression prevention, design respect, upstream>downstream enforcement
+- **行为审查**: Disagree-when-wrong, assumption surfacing, anti-rationalization, fail-explicitly
