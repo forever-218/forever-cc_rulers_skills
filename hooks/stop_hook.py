@@ -206,6 +206,24 @@ if warn_violations:
     )
 
 # ═══════════════════════════════════════
+# Skill invocation check — mechanical enforcement
+# ═══════════════════════════════════════
+
+# Check if model invoked Skill tool this turn
+called_skill = '"tool_name":"Skill"' in response_text or '"tool_name": "Skill"' in response_text
+
+# Check if this is a substantive user turn (not just a local-command echo)
+is_local_command_echo = '<local-command-caveat>' in response_text or '<command-name>' in response_text
+is_trivial_confirm = len(response_text) < 200 and any(x in response_lower for x in ['ok', '好的', '明白', 'got it', 'sure'])
+
+if not called_skill and not is_local_command_echo and not is_trivial_confirm:
+    block_violations.append(
+        "SKILL NOT INVOKED: 本轮未调用 Skill 工具。根据 CLAUDE.md 强制规则，"
+        "每轮对话必须先调用 superpowers-using-superpowers + 任何适用的 skill。"
+        "请先执行 Skill 检查再回复。"
+    )
+
+# ═══════════════════════════════════════
 # Clarify-before-act
 # ═══════════════════════════════════════
 
