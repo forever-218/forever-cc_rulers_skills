@@ -15,7 +15,6 @@ response_lower = response_text.lower()
 
 CACHE_DIR = os.path.expanduser("~/.claude/hook_cache")
 
-# Toggle: sentinel file disables all agent gatekeeping
 if os.path.exists(os.path.join(CACHE_DIR, "agents_paused")) or os.environ.get("AGENT_GUARD", "").lower() == "off":
     sys.exit(0)
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -71,15 +70,13 @@ verify_violations = []
 
 if code_was_modified:
     if not did_verify:
-        verify_violations.append(
-            "CODE UNTESTED: code modified but not verified. Run project_run + logs_read or test_run."
-        )
+        verify_violations.append("CODE UNTESTED: code modified but not verified.")
         verify_state = "need_verify"
     elif has_test_failures or has_log_errors:
         if has_test_failures:
-            verify_violations.append("TEST FAILED: fix errors and re-verify.")
+            verify_violations.append("TEST FAILED: fix and re-verify.")
         if has_log_errors:
-            verify_violations.append("LOG ERRORS: fix errors and re-run project_run + logs_read.")
+            verify_violations.append("LOG ERRORS: fix and re-verify.")
         verify_state = "need_fix"
     else:
         verify_state = "idle"
@@ -89,16 +86,12 @@ if code_was_modified:
 elif verify_state in ("need_verify", "need_fix"):
     if did_verify:
         if has_test_failures or has_log_errors:
-            if has_test_failures:
-                verify_violations.append("TEST FAILED: still failing. Keep fixing.")
-            if has_log_errors:
-                verify_violations.append("LOG ERRORS: still have errors. Keep fixing.")
             verify_state = "need_fix"
         else:
             verify_state = "idle"
             print("\n" + "=" * 50 + "\n  [OK] Verification passed.\n" + "=" * 50 + "\n", flush=True)
     else:
-        verify_violations.append("VERIFICATION PENDING: verification required but not yet performed.")
+        verify_violations.append("VERIFICATION PENDING: not yet performed.")
 
 with open(VERIFY_STATE, "w") as f:
     json.dump({"state": verify_state}, f)
@@ -118,9 +111,9 @@ for vm in violation_pattern.findall(response_text):
             fails.append(f"{rule}: {evidence}")
 
 BLOCK_RULES = [
-    "WRONG=DONE", "wrong equals not done", "wrong=d",
-    "COMPLETION", "completion", "task completion",
-    "REGRESS", "regress", "don't regress", "dont regress",
+    "WRONG=DONE", "wrong equals not done",
+    "COMPLETION", "completion",
+    "REGRESS", "regress",
     "CORRECTNESS>CONVENIENCE", "correctness over convenience",
     "DIAGNOSTIC VS EDIT", "diagnostic vs edit",
     "SURFACE ASSUMPTIONS", "surface assumptions",
@@ -142,7 +135,7 @@ for f in fails:
 block_violations.extend(verify_violations)
 
 # ==============================
-# DECISION (early — before adding SOFT checks)
+# DECISION
 # ==============================
 
 if block_violations:
@@ -161,18 +154,9 @@ if block_violations:
     print(msg, flush=True)
     sys.exit(2)
 
-# ==============================
 # Non-blocking warnings
-# ==============================
-
 if warn_violations:
-    print(
-        "\n" + "!" * 55 + "\n"
-        "  [WARN] Guard notices:\n"
-        + "".join(f"\n    * {v}" for v in warn_violations) +
-        "\n" + "!" * 55 + "\n",
-        flush=True
-    )
+    print("\n" + "!" * 55 + "\n  [WARN] " + " | ".join(warn_violations) + "\n" + "!" * 55 + "\n", flush=True)
 
 # ==============================
 # Skill invocation check
@@ -183,21 +167,13 @@ is_local_command_echo = '<local-command-caveat>' in response_text or '<command-n
 is_trivial_confirm = len(response_text) < 200 and any(x in response_lower for x in ['ok', 'got it', 'sure'])
 
 if not called_skill and not is_local_command_echo and not is_trivial_confirm:
-    block_violations.append(
-        "SKILL NOT INVOKED: Skill tool not called this turn."
-    )
+    block_violations.append("SKILL NOT INVOKED: Skill tool not called this turn.")
 
-# ==============================
 # Clarify-before-act
-# ==============================
-
 if re.search(r'[?？]', response_text) and re.search(r'"tool_name"\s*:\s*"(Edit|Write)"', response_text):
-    print("\n" + "!" * 55 + "\n  [WARN] Clarify before act: question + edit in same turn.\n" + "!" * 55 + "\n", flush=True)
+    print("\n" + "!" * 55 + "\n  [WARN] Clarify before act.\n" + "!" * 55 + "\n", flush=True)
 
-# ==============================
 # Reasoning state reset
-# ==============================
-
 REASONING_STATE_FILE = os.path.join(CACHE_DIR, "reasoning_state.json")
 try:
     with open(REASONING_STATE_FILE, "w") as f:
@@ -221,15 +197,12 @@ if not is_local_command_echo and not is_trivial_confirm:
     if has_no_evidence:
         shallow_signals.append("no tool calls + short response")
     if has_should_work and tool_call_count <= 1:
-        shallow_signals.append("vague language ('should work', etc.)")
+        shallow_signals.append("vague language")
     if is_short_answer and tool_call_count <= 1:
         shallow_signals.append("very short + no tool calls")
 
     if shallow_signals:
-        block_violations.append(
-            "SHALLOW RESPONSE: " + "; ".join(shallow_signals) + ".\n"
-            "Rule: correct over fast. Verify, don't guess."
-        )
+        block_violations.append("SHALLOW RESPONSE: " + "; ".join(shallow_signals))
 
 # ==============================
 # Method-override detection
@@ -247,34 +220,24 @@ has_permission_ask = any(x in response_lower for x in [
 
 if (declared_override or declared_switch) and not has_permission_ask:
     block_violations.append(
-        "METHOD OVERRIDE: model changed procedure without asking.\n"
-        "Rule: follow user-specified procedure. If faster way exists, propose first — never switch unilaterally."
+        "METHOD OVERRIDE: model changed procedure without asking."
     )
 
 # ==============================
-# PixelLab result reconciliation — MECHANICAL
+# PixelLab result reconciliation
 # ==============================
 
 PL_STATE_FILE = os.path.join(CACHE_DIR, "pixellab_state.json")
 PL_CREATE_SIGNAL = "mcp__pixellab__create_" in response_text or "mcp__pixellab__animate_" in response_text
-PL_VERIFY_SIGNAL = any(x in response_text for x in [
-    "mcp__pixellab__get_", "mcp__pixellab__list_"
-])
+PL_VERIFY_SIGNAL = any(x in response_text for x in ["mcp__pixellab__get_", "mcp__pixellab__list_"])
 
 if PL_CREATE_SIGNAL and not PL_VERIFY_SIGNAL:
-    block_violations.append(
-        "PIXELLAB UNVERIFIED: create/animate called without get_*/list_* check."
-    )
+    block_violations.append("PIXELLAB UNVERIFIED: create/animate without get_*/list_*.")
 elif PL_CREATE_SIGNAL and PL_VERIFY_SIGNAL:
     has_specific_count = bool(re.search(r'(?:count|total)\s*[:：]?\s*\d+', response_lower))
-    has_status_report = any(x in response_lower for x in [
-        "completed", "success", "failed", "progress", "pending"
-    ])
+    has_status_report = any(x in response_lower for x in ["completed", "success", "failed", "progress", "pending"])
     if not has_specific_count and not has_status_report:
-        block_violations.append(
-            "PIXELLAB DODGED: get_*/list_* called but no specific results reported.\n"
-            "Must output: actual count, success/fail, remaining."
-        )
+        block_violations.append("PIXELLAB DODGED: verify called but no specific results reported.")
 
 _pl_pending = 0
 if os.path.exists(PL_STATE_FILE):
@@ -285,13 +248,10 @@ if os.path.exists(PL_STATE_FILE):
     except:
         pass
 if _pl_pending >= 10 and not PL_VERIFY_SIGNAL:
-    block_violations.append(
-        f"PIXELLAB DEBT: {_pl_pending} unverified generation requests accumulated.\n"
-        "Must list_* before continuing."
-    )
+    block_violations.append(f"PIXELLAB DEBT: {_pl_pending} unverified pending.")
 
 # ==============================
-# dotnet build auto-verification — MECHANICAL
+# dotnet build auto-verification
 # ==============================
 
 _cs_modified = False
@@ -331,8 +291,7 @@ if _cs_modified and _cs_files:
             import subprocess
             _result = subprocess.run(
                 ["dotnet", "build", _csproj, "--nologo", "-v", "q"],
-                cwd=_project_root,
-                capture_output=True, text=True, timeout=45
+                cwd=_project_root, capture_output=True, text=True, timeout=45
             )
             _build_output = (_result.stdout + _result.stderr).strip()
             if _result.returncode != 0:
@@ -342,25 +301,15 @@ if _cs_modified and _cs_files:
                         _error_lines.append(_line.strip()[-200:])
                 if not _error_lines:
                     _error_lines = _build_output.split('\n')[-15:]
-                block_violations.append(
-                    "DOTNET BUILD FAILED:\n"
-                    + "\n".join(f"  {el}" for el in _error_lines[:12])
-                )
+                block_violations.append("DOTNET BUILD FAILED:\n" + "\n".join(f"  {el}" for el in _error_lines[:12]))
             else:
                 print("\n" + "=" * 50 + "\n  [MECHANICAL] dotnet build: PASSED\n" + "=" * 50 + "\n", flush=True)
                 if os.path.exists(MODIFIED_FILE):
                     os.remove(MODIFIED_FILE)
-        except subprocess.TimeoutExpired:
-            print("\n  [MECHANICAL] dotnet build: TIMEOUT (>45s)\n", flush=True)
-        except FileNotFoundError:
-            print("\n  [MECHANICAL] dotnet build: dotnet CLI not found\n", flush=True)
-        except Exception as _e:
-            print(f"\n  [MECHANICAL] dotnet build: error ({_e})\n", flush=True)
+        except:
+            pass
 
-# ==============================
 # Memorialize reminder
-# ==============================
-
 discussion_kw = ["decision", "architecture", "design", "approach"]
 if any(kw in response_lower for kw in discussion_kw) and len(response_text) > 3000:
     print("\n" + "=" * 55 + "\n  [REMINDER] Design discussion — save to memory.\n" + "=" * 55 + "\n", flush=True)
