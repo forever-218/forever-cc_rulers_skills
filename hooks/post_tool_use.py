@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PostToolUse hooks: track reads, verify writes, GDScript validate, repeat error tracker
+PostToolUse hooks: track reads, content-change verification, GDScript validate, repeat error tracker
 Receives tool result JSON on stdin. Always exits 0 (advisory only).
 """
 import sys, json, os, re
@@ -47,14 +47,11 @@ def validate_gdscript(content_text):
 
     # Check string balance (simple heuristic)
     for i, line in enumerate(lines, 1):
-        # Count unescaped double quotes
         dq_count = line.count('"') - line.count('\\"')
         if dq_count % 2 != 0:
             issues.append(f"Line {i}: possible unclosed string")
 
-    # Check for common GDScript issues
     joined = '\n'.join(lines)
-    # Missing colon after if/elif/else/for/while/func
     for kw in ['if ', 'elif ', 'else', 'for ', 'while ', 'func ']:
         pattern = rf'\b{kw}\b.*[^:]\s*$'
         for i, line in enumerate(lines, 1):
@@ -70,7 +67,7 @@ try:
 except Exception:
     sys.exit(0)
 
-# ━━━  Track reads (for read-before-write hook) ━━━
+# Track reads (for read-before-write hook)
 if tool == "Read":
     fp = inp.get("file_path", "")
     if fp:
@@ -78,31 +75,52 @@ if tool == "Read":
         cache.add(fp)
         write_cache(cache)
 
-# ━━━  Write-then-verify + GDScript validation ━━━
+# Write-then-verify + mechanical content verification + GDScript validation
 if tool in ("Edit", "Write"):
     fp = inp.get("file_path", "")
     if fp:
+        # MECHANICAL: for Edit, verify new_string actually landed in the file
+        if tool == "Edit" and fp.endswith((".cs", ".gd", ".py", ".json", ".tscn", ".tres")):
+            new_str = inp.get("new_string", "")
+            if new_str and os.path.exists(fp):
+                try:
+                    with open(fp, "r", encoding="utf-8", errors="ignore") as f:
+                        actual = f.read()
+                    if new_str not in actual:
+                        print(
+                            f"\n{'!'*55}\n"
+                            f"  [MECHANICAL FAIL] WRITE NOT APPLIED: {fp}\n"
+                            f"  old_string did not match or new_string not found in file.\n"
+                            f"  LLM claimed edit but file unchanged. Read + re-Edit required.\n"
+                            f"{'!'*55}\n",
+                            flush=True
+                        )
+                    else:
+                        print(f"  [MECHANICAL] Write verified: new_string in file", flush=True)
+                except Exception as e:
+                    print(f"  [MECHANICAL] Write verify skipped ({e})", flush=True)
+
         print(
-            f"\n{'~'*50}\n  已修改: {fp}\n  请验证写入内容。修改完记得测试功能。\n{'~'*50}\n",
+            f"\n{'~'*50}\n  MODIFIED: {fp}\n  Verify the change. Test after editing.\n{'~'*50}\n",
             flush=True
         )
 
-        # ━ GDScript syntax validation ━
+        # GDScript syntax validation
         if fp.endswith(".gd"):
             content = inp.get("content", "") if tool == "Write" else inp.get("new_string", "")
             if content:
                 issues = validate_gdscript(content)
                 if issues:
                     print(
-                        f"\n{'!'*50}\n  ⛔ GDScript 语法警告: {fp}\n"
-                        + "\n".join(f"    • {x}" for x in issues[:8]) +
+                        f"\n{'!'*50}\n  GDScript syntax warnings: {fp}\n"
+                        + "\n".join(f"    - {x}" for x in issues[:8]) +
                         f"\n{'!'*50}\n",
                         flush=True
                     )
                 else:
-                    print(f"  ✓ GDScript 基础语法检查通过: {fp}", flush=True)
+                    print(f"  GDScript basic syntax OK: {fp}", flush=True)
 
-        # ━ Track code modification for Agent B ━
+        # Track code modification for verification loop
         if fp.endswith((".gd", ".cs")):
             mods = {}
             if os.path.exists(MODIFIED_FILE):
@@ -115,7 +133,7 @@ if tool in ("Edit", "Write"):
             with open(MODIFIED_FILE, "w") as f:
                 json.dump(mods, f)
 
-# ━━━  Simplicity heuristic ━━━
+# Simplicity heuristic
 if tool in ("Write", "Edit"):
     fp = inp.get("file_path", "")
     if fp and fp.endswith((".gd", ".cs", ".py", ".tscn", ".tres")):
@@ -135,24 +153,26 @@ if tool in ("Write", "Edit"):
                 markers.append("DI")
             if fp.endswith(".gd"):
                 if lower.count("signal ") > 3:
-                    markers.append(f"signals×{lower.count('signal ')}")
+                    markers.append(f"signals x{lower.count('signal ')}")
                 if lower.count("extends ") > 1:
-                    markers.append("多层继承")
+                    markers.append("multi-extends")
             lines = content.split("\n")
             if len(lines) > 200:
-                markers.append(f"{len(lines)}行")
+                markers.append(f"{len(lines)} lines")
             cls_count = lower.count("class ") + lower.count("class_name ")
             if cls_count > 3:
-                markers.append(f"classes×{cls_count}")
+                markers.append(f"{cls_count} classes")
             if markers:
                 print(
-                    f"\n{'~'*50}\n  ⚠️  复杂度提醒: {fp}\n"
-                    f"  检测到: {', '.join(markers)}\n"
-                    f"  规则: Simplest solution first — 确保这是最简单方案。\n{'~'*50}\n",
+                    f"\n{'~'*50}\n"
+                    f"  COMPLEXITY: {fp}\n"
+                    f"  Detected: {', '.join(markers)}\n"
+                    f"  Rule: Simplest solution first.\n"
+                    f"{'~'*50}\n",
                     flush=True
                 )
 
-# ━━━  Repeat error tracker ━━━
+# Repeat error tracker
 result_str = json.dumps(data).lower()
 is_error = any(word in result_str for word in ["error", "failed", "exception", "traceback"])
 
@@ -175,7 +195,7 @@ if is_error:
         json.dump(ec, f)
     if ec["count"] >= 3:
         print(
-            f"\n{'!'*50}\n  同一错误已出现 {ec['count']} 次！请换一个思路。\n{'!'*50}\n",
+            f"\n{'!'*50}\n  Same error {ec['count']} times! Change approach.\n{'!'*50}\n",
             flush=True
         )
 else:
