@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-PostToolUse hooks: track reads, content-change verification, GDScript validate, repeat error tracker
+PostToolUse hooks: track reads, content-change verification,
+GDScript validate, .tscn/.tres validate, repeat error tracker
 Receives tool result JSON on stdin. Always exits 0 (advisory only).
 """
 import sys, json, os, re
@@ -29,7 +30,6 @@ def validate_gdscript(content_text):
     issues = []
     lines = content_text.split('\n')
 
-    # Check bracket/brace/paren balance
     pairs = {'(': ')', '[': ']', '{': '}'}
     stack = []
     for i, line in enumerate(lines, 1):
@@ -45,7 +45,6 @@ def validate_gdscript(content_text):
     for expected, line_no in stack:
         issues.append(f"Line {line_no}: unclosed '{expected}'")
 
-    # Check string balance (simple heuristic)
     for i, line in enumerate(lines, 1):
         dq_count = line.count('"') - line.count('\\"')
         if dq_count % 2 != 0:
@@ -60,6 +59,58 @@ def validate_gdscript(content_text):
 
     return issues
 
+def validate_scene_resource(content_text, ext):
+    """Validate .tscn / .tres structure. Returns list of issues."""
+    issues = []
+    lines = content_text.split('\n')
+
+    if ext == ".tscn":
+        if not content_text.strip().startswith('[gd_scene'):
+            issues.append("Missing [gd_scene] header")
+    elif ext == ".tres":
+        if not content_text.strip().startswith('[gd_resource'):
+            issues.append("Missing [gd_resource] header")
+
+    bracket_count = 0
+    for i, line in enumerate(lines, 1):
+        bracket_count += line.count('[') - line.count(']')
+    if bracket_count != 0:
+        issues.append(f"Unbalanced [] brackets (net: {bracket_count:+d})")
+
+    for i, line in enumerate(lines, 1):
+        dq = line.count('"') - line.count('\\"')
+        if dq % 2 != 0:
+            issues.append(f"Line {i}: unclosed quote")
+            break
+
+    if ext == ".tscn":
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith('[node ') and stripped.endswith(']'):
+                inner = stripped[6:-1]
+                has_name = 'name="' in inner or "name='" in inner
+                has_type = 'type="' in inner or "type='" in inner
+                if not has_name:
+                    issues.append(f"Line {i}: [node] missing name=")
+                if not has_type:
+                    issues.append(f"Line {i}: [node] missing type=")
+            if 'ExtResource(' in stripped:
+                ref_id = re.search(r'ExtResource\("([^"]+)"\)', stripped)
+                if not ref_id:
+                    ref_id = re.search(r"ExtResource\('([^']+)'\)", stripped)
+                if ref_id:
+                    rid = ref_id.group(1)
+                    found = any(f'id="{rid}"' in l or f"id='{rid}'" in l
+                               for l in lines if l.strip().startswith('[ext_resource'))
+                    if not found:
+                        issues.append(f"Line {i}: ExtResource({rid}) has no matching [ext_resource]")
+
+    last_line = content_text.rstrip()[-200:]
+    if ext == ".tscn" and '[' in last_line and not last_line.rstrip().endswith(']'):
+        issues.append("File appears truncated (ends mid-entry)")
+
+    return issues
+
 try:
     data = json.load(sys.stdin)
     tool = data.get("tool_name", "")
@@ -67,7 +118,7 @@ try:
 except Exception:
     sys.exit(0)
 
-# Track reads (for read-before-write hook)
+# Track reads
 if tool == "Read":
     fp = inp.get("file_path", "")
     if fp:
@@ -75,7 +126,7 @@ if tool == "Read":
         cache.add(fp)
         write_cache(cache)
 
-# Write-then-verify + mechanical content verification + GDScript validation
+# Write-then-verify + mechanical content verification + validation
 if tool in ("Edit", "Write"):
     fp = inp.get("file_path", "")
     if fp:
@@ -119,6 +170,22 @@ if tool in ("Edit", "Write"):
                     )
                 else:
                     print(f"  GDScript basic syntax OK: {fp}", flush=True)
+
+        # .tscn/.tres structural validation
+        if fp.endswith((".tscn", ".tres")):
+            content = inp.get("content", "") if tool == "Write" else inp.get("new_string", "")
+            if content:
+                issues = validate_scene_resource(content, os.path.splitext(fp)[1])
+                if issues:
+                    print(
+                        f"\n{'!'*55}\n"
+                        f"  [MECHANICAL] SCENE/RESOURCE VALIDATION FAILED: {fp}\n"
+                        + "\n".join(f"    - {x}" for x in issues[:8]) +
+                        f"\n{'!'*55}\n",
+                        flush=True
+                    )
+                else:
+                    print(f"  [MECHANICAL] Scene/resource structure OK: {fp}", flush=True)
 
         # Track code modification for verification loop
         if fp.endswith((".gd", ".cs")):

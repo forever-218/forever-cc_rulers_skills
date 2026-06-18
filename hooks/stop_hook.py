@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Stop hook: gatekeeper — test verification, agent scan, behavioral checks,
-mechanical verification (dotnet build, PixelLab reconciliation).
+Stop hook: gatekeeper — test verification loop, agent output scan, behavioral checks.
 Exit 0 = allow stop. Exit 2 = reject stop, rewake Claude.
 """
 import sys, json, os, re
@@ -16,16 +15,16 @@ response_lower = response_text.lower()
 
 CACHE_DIR = os.path.expanduser("~/.claude/hook_cache")
 
-# ━━━ TOGGLE: sentinel file disables all agent gatekeeping ━━━
+# Toggle: sentinel file disables all agent gatekeeping
 if os.path.exists(os.path.join(CACHE_DIR, "agents_paused")) or os.environ.get("AGENT_GUARD", "").lower() == "off":
     sys.exit(0)
 os.makedirs(CACHE_DIR, exist_ok=True)
 MODIFIED_FILE = os.path.join(CACHE_DIR, "code_modified.json")
 VERIFY_STATE = os.path.join(CACHE_DIR, "verify_state.json")
 
-# ═══════════════════════════════════════════════════════════════
+# ==============================
 # TEST VERIFICATION LOOP
-# ═══════════════════════════════════════════════════════════════
+# ==============================
 
 code_was_modified = False
 if os.path.exists(MODIFIED_FILE):
@@ -73,17 +72,14 @@ verify_violations = []
 if code_was_modified:
     if not did_verify:
         verify_violations.append(
-            "CODE UNTESTED: 本轮修改了代码但未验证功能。请执行：\n"
-            "  1. project_run + logs_read(source=\"game\")\n"
-            "  2. 或: test_run\n"
-            "  3. 或: game_eval"
+            "CODE UNTESTED: code modified but not verified. Run project_run + logs_read or test_run."
         )
         verify_state = "need_verify"
     elif has_test_failures or has_log_errors:
         if has_test_failures:
-            verify_violations.append("TEST FAILED: 测试未通过，请根据失败输出修复代码后重新验证。")
+            verify_violations.append("TEST FAILED: fix errors and re-verify.")
         if has_log_errors:
-            verify_violations.append("LOG ERRORS: 运行日志有错误，请修复后重新跑 project_run + logs_read。")
+            verify_violations.append("LOG ERRORS: fix errors and re-run project_run + logs_read.")
         verify_state = "need_fix"
     else:
         verify_state = "idle"
@@ -94,22 +90,22 @@ elif verify_state in ("need_verify", "need_fix"):
     if did_verify:
         if has_test_failures or has_log_errors:
             if has_test_failures:
-                verify_violations.append("TEST FAILED: 修复后测试仍不通过，请继续修复。")
+                verify_violations.append("TEST FAILED: still failing. Keep fixing.")
             if has_log_errors:
-                verify_violations.append("LOG ERRORS: 修复后仍有错误，请继续修复。")
+                verify_violations.append("LOG ERRORS: still have errors. Keep fixing.")
             verify_state = "need_fix"
         else:
             verify_state = "idle"
             print("\n" + "=" * 50 + "\n  [OK] Verification passed.\n" + "=" * 50 + "\n", flush=True)
     else:
-        verify_violations.append("VERIFICATION PENDING: 上轮要求验证代码但还未执行。")
+        verify_violations.append("VERIFICATION PENDING: verification required but not yet performed.")
 
 with open(VERIFY_STATE, "w") as f:
     json.dump({"state": verify_state}, f)
 
-# ═══════════════════════════════════════════════════════════════
+# ==============================
 # Gatekeeper: scan agent FAIL outputs
-# ═══════════════════════════════════════════════════════════════
+# ==============================
 
 fail_pattern = re.compile(r'(?:FAIL|fail)\s*[:：]\s*(.+?)(?:\n|$)', re.IGNORECASE)
 fails = fail_pattern.findall(response_text)
@@ -145,29 +141,29 @@ for f in fails:
 
 block_violations.extend(verify_violations)
 
-# ═══════════════════════════════════════
-# DECISION (early — before adding SOFT checks below)
-# ═══════════════════════════════════════
+# ==============================
+# DECISION (early — before adding SOFT checks)
+# ==============================
 
 if block_violations:
     msg = (
-        "\n" + "█" * 62 + "\n"
-        "█  [GUARD BLOCKED] Fix required:\n█\n"
+        "\n" + "#" * 60 + "\n"
+        "  [GUARD BLOCKED] Fix required:\n\n"
     )
     for i, v in enumerate(block_violations, 1):
-        msg += f"█    {i}. {v}\n"
+        msg += f"    {i}. {v}\n"
     msg += (
-        "█\n█  Fix the issues above, then respond again.\n"
-        + "█" * 62 + "\n"
+        "\n  Fix the issues above, then respond again.\n"
+        + "#" * 60 + "\n"
     )
     if os.path.exists(MODIFIED_FILE):
         os.remove(MODIFIED_FILE)
     print(msg, flush=True)
     sys.exit(2)
 
-# ═══════════════════════════════════════
+# ==============================
 # Non-blocking warnings
-# ═══════════════════════════════════════
+# ==============================
 
 if warn_violations:
     print(
@@ -178,9 +174,9 @@ if warn_violations:
         flush=True
     )
 
-# ═══════════════════════════════════════
+# ==============================
 # Skill invocation check
-# ═══════════════════════════════════════
+# ==============================
 
 called_skill = '"tool_name":"Skill"' in response_text or '"tool_name": "Skill"' in response_text
 is_local_command_echo = '<local-command-caveat>' in response_text or '<command-name>' in response_text
@@ -188,19 +184,19 @@ is_trivial_confirm = len(response_text) < 200 and any(x in response_lower for x 
 
 if not called_skill and not is_local_command_echo and not is_trivial_confirm:
     block_violations.append(
-        "SKILL NOT INVOKED: 本轮未调用 Skill 工具。请先执行 Skill 检查再回复。"
+        "SKILL NOT INVOKED: Skill tool not called this turn."
     )
 
-# ═══════════════════════════════════════
+# ==============================
 # Clarify-before-act
-# ═══════════════════════════════════════
+# ==============================
 
 if re.search(r'[?？]', response_text) and re.search(r'"tool_name"\s*:\s*"(Edit|Write)"', response_text):
     print("\n" + "!" * 55 + "\n  [WARN] Clarify before act: question + edit in same turn.\n" + "!" * 55 + "\n", flush=True)
 
-# ═══════════════════════════════════════
+# ==============================
 # Reasoning state reset
-# ═══════════════════════════════════════
+# ==============================
 
 REASONING_STATE_FILE = os.path.join(CACHE_DIR, "reasoning_state.json")
 try:
@@ -209,14 +205,13 @@ try:
 except:
     pass
 
-# ═══════════════════════════════════════
+# ==============================
 # Shallow response detection
-# ═══════════════════════════════════════
+# ==============================
 
 tool_call_count = response_text.count('"tool_name"') or response_text.count('"tool_name":')
 has_should_work = any(x in response_lower for x in [
-    "should work", "应该可以", "应该没问题", "看起来对", "seems fine",
-    "probably works", "might work"
+    "should work", "should be fine", "seems fine", "probably works", "might work"
 ])
 has_no_evidence = tool_call_count == 0 and len(response_text) < 2500
 is_short_answer = len(response_text) < 800
@@ -226,7 +221,7 @@ if not is_local_command_echo and not is_trivial_confirm:
     if has_no_evidence:
         shallow_signals.append("no tool calls + short response")
     if has_should_work and tool_call_count <= 1:
-        shallow_signals.append("used 'should work' / 'should be fine'")
+        shallow_signals.append("vague language ('should work', etc.)")
     if is_short_answer and tool_call_count <= 1:
         shallow_signals.append("very short + no tool calls")
 
@@ -236,23 +231,48 @@ if not is_local_command_echo and not is_trivial_confirm:
             "Rule: correct over fast. Verify, don't guess."
         )
 
-# ═══════════════════════════════════════
+# ==============================
 # PixelLab result reconciliation — MECHANICAL
-# ═══════════════════════════════════════
+# ==============================
 
+PL_STATE_FILE = os.path.join(CACHE_DIR, "pixellab_state.json")
 PL_CREATE_SIGNAL = "mcp__pixellab__create_" in response_text or "mcp__pixellab__animate_" in response_text
 PL_VERIFY_SIGNAL = any(x in response_text for x in [
     "mcp__pixellab__get_", "mcp__pixellab__list_"
 ])
+
 if PL_CREATE_SIGNAL and not PL_VERIFY_SIGNAL:
     block_violations.append(
-        "PIXELLAB UNVERIFIED: PixelLab create/animate called without get_*/list_* check.\n"
-        "Rule: check results after every generation batch."
+        "PIXELLAB UNVERIFIED: create/animate called without get_*/list_* check."
+    )
+elif PL_CREATE_SIGNAL and PL_VERIFY_SIGNAL:
+    has_specific_count = bool(re.search(r'(?:count|total)\s*[:：]?\s*\d+', response_lower))
+    has_status_report = any(x in response_lower for x in [
+        "completed", "success", "failed", "progress", "pending"
+    ])
+    if not has_specific_count and not has_status_report:
+        block_violations.append(
+            "PIXELLAB DODGED: get_*/list_* called but no specific results reported.\n"
+            "Must output: actual count, success/fail, remaining."
+        )
+
+_pl_pending = 0
+if os.path.exists(PL_STATE_FILE):
+    try:
+        with open(PL_STATE_FILE) as f:
+            _pl_st = json.load(f)
+        _pl_pending = _pl_st.get("pending_count", 0)
+    except:
+        pass
+if _pl_pending >= 10 and not PL_VERIFY_SIGNAL:
+    block_violations.append(
+        f"PIXELLAB DEBT: {_pl_pending} unverified generation requests accumulated.\n"
+        "Must list_* before continuing."
     )
 
-# ═══════════════════════════════════════
+# ==============================
 # dotnet build auto-verification — MECHANICAL
-# ═══════════════════════════════════════
+# ==============================
 
 _cs_modified = False
 _cs_files = []
@@ -317,12 +337,12 @@ if _cs_modified and _cs_files:
         except Exception as _e:
             print(f"\n  [MECHANICAL] dotnet build: error ({_e})\n", flush=True)
 
-# ═══════════════════════════════════════
+# ==============================
 # Memorialize reminder
-# ═══════════════════════════════════════
+# ==============================
 
-discussion_kw = ["决定", "方案", "设计", "架构", "architecture", "design", "approach", "decision", "agreed"]
+discussion_kw = ["decision", "architecture", "design", "approach"]
 if any(kw in response_lower for kw in discussion_kw) and len(response_text) > 3000:
-    print("\n" + "=" * 55 + "\n  [REMINDER] Design discussion detected — save to memory.\n" + "=" * 55 + "\n", flush=True)
+    print("\n" + "=" * 55 + "\n  [REMINDER] Design discussion — save to memory.\n" + "=" * 55 + "\n", flush=True)
 
 sys.exit(0)
