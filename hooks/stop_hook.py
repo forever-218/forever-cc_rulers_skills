@@ -232,6 +232,26 @@ if not is_local_command_echo and not is_trivial_confirm:
         )
 
 # ==============================
+# Method-override detection
+# ==============================
+
+declared_override = any(x in response_lower for x in [
+    "too slow", "skipping", "i'll just", "i will just",
+])
+declared_switch = any(x in response_lower for x in [
+    "switch to", "switched to", "change to", "batch",
+])
+has_permission_ask = any(x in response_lower for x in [
+    "should i", "shall i", "want me to",
+])
+
+if (declared_override or declared_switch) and not has_permission_ask:
+    block_violations.append(
+        "METHOD OVERRIDE: model changed procedure without asking.\n"
+        "Rule: follow user-specified procedure. If faster way exists, propose first — never switch unilaterally."
+    )
+
+# ==============================
 # PixelLab result reconciliation — MECHANICAL
 # ==============================
 
