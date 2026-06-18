@@ -231,6 +231,48 @@ if re.search(r'[?？]', response_text) and re.search(r'"tool_name"\s*:\s*"(Edit|
     print("\n" + "!" * 55 + "\n  ⚠️  Clarify before act: 同时包含提问和编辑。\n" + "!" * 55 + "\n", flush=True)
 
 # ═══════════════════════════════════════
+# Reasoning state reset — clear for next turn
+# ═══════════════════════════════════════
+
+REASONING_STATE_FILE = os.path.join(CACHE_DIR, "reasoning_state.json")
+try:
+    with open(REASONING_STATE_FILE, "w") as f:
+        json.dump({"reasoning_used": False}, f)
+except:
+    pass
+
+# ═══════════════════════════════════════
+# Shallow response detection
+# ═══════════════════════════════════════
+
+# Count substantive tool calls (excluding Skill which is mandatory overhead)
+tool_call_count = response_text.count('"tool_name"') or response_text.count('"tool_name":')
+
+# Subtle marks of a shallow/lazy response
+has_should_work = any(x in response_lower for x in [
+    "should work", "应该可以", "应该没问题", "看起来对", "seems fine",
+    "probably works", "might work"
+])
+has_no_evidence = tool_call_count == 0 and len(response_text) < 2500
+is_short_answer = len(response_text) < 800
+
+if not is_local_command_echo and not is_trivial_confirm:
+    shallow_signals = []
+    if has_no_evidence:
+        shallow_signals.append("无工具调用 + 回复过短")
+    if has_should_work and tool_call_count <= 1:
+        shallow_signals.append("使用「应该可以/看起来对」等模糊措辞")
+    if is_short_answer and tool_call_count <= 1:
+        shallow_signals.append("回复极短且无实质工具调用")
+
+    if shallow_signals:
+        block_violations.append(
+            "SHALLOW RESPONSE: " + "; ".join(shallow_signals) + "。\n"
+            "规则: 选对不选快。有疑问就验证，不确定就查，没见过就读取。\n"
+            "不要用「应该」「看起来」替代实际验证。请重新深入分析后回答。"
+        )
+
+# ═══════════════════════════════════════
 # Memorialize reminder
 # ═══════════════════════════════════════
 
