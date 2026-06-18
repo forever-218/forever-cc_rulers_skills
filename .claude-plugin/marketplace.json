@@ -1,14 +1,14 @@
 {
   "name": "cc-rules",
-  "description": "Comprehensive behavioral rules for Claude Code: anti-stall, completion verification, simplicity, surgical changes, and 98+ documented failure mode patterns",
+  "description": "Comprehensive behavioral enforcement for Claude Code: anti-stall rules + mechanical hooks that physically block shortcuts. Includes reasoning-before-edit, dotnet build auto-verify, PixelLab credit guard, write-content verification, .tscn validation, shallow response detection, and 4 LLM guard agents.",
   "owner": {
     "name": "forever"
   },
   "plugins": [
     {
       "name": "cc-forever-rules",
-      "description": "Comprehensive behavioral rules combining project-specific guidelines with Karpathy principles: anti-stall, completion verification, simplicity first, surgical changes, goal-driven execution, and 98+ documented failure mode patterns. Derived from real interaction failures and systemically categorized.",
-      "version": "1.2.0",
+      "description": "Comprehensive behavioral enforcement: anti-stall, completion verification, simplicity, surgical changes, 98+ failure mode patterns, PLUS mechanical hooks (reasoning-before-edit, dotnet build auto-verify, PixelLab guard, write-content check, .tscn/.tres validation, shallow response detection, Skill enforcement) and 4 LLM guard agents. Derived from real interaction failures and systemically categorized.",
+      "version": "1.3.0",
       "author": {
         "name": "forever"
       },
@@ -17,7 +17,12 @@
         "guidelines",
         "behavioral-rules",
         "anti-stall",
-        "coding"
+        "coding",
+        "hooks",
+        "guard-agents",
+        "mechanical-verification",
+        "pixellab-guard",
+        "skip-prevention"
       ],
       "category": "workflow"
     }
