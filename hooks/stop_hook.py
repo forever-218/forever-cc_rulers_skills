@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Stop hook: gatekeeper — test verification loop, agent output scan, behavioral checks.
+Stop hook: gatekeeper — test verification, agent scan, behavioral checks,
+mechanical verification (dotnet build, PixelLab reconciliation, hook integrity).
 Exit 0 = allow stop. Exit 2 = reject stop, rewake Claude.
 """
 import sys, json, os, re
@@ -91,7 +92,7 @@ elif verify_state in ("need_verify", "need_fix"):
             verify_state = "idle"
             print("\n" + "=" * 50 + "\n  [OK] Verification passed.\n" + "=" * 50 + "\n", flush=True)
     else:
-        verify_violations.append("VERIFICATION PENDING: not yet performed.")
+        verify_violations.append("VERIFICATION PENDING.")
 
 with open(VERIFY_STATE, "w") as f:
     json.dump({"state": verify_state}, f)
@@ -115,11 +116,11 @@ BLOCK_RULES = [
     "COMPLETION", "completion",
     "REGRESS", "regress",
     "CORRECTNESS>CONVENIENCE", "correctness over convenience",
-    "DIAGNOSTIC VS EDIT", "diagnostic vs edit",
-    "SURFACE ASSUMPTIONS", "surface assumptions",
-    "UPSTREAM>DOWNSTREAM", "upstream over downstream",
-    "SIMPLICITY", "simplest solution",
-    "FAIL EXPLICITLY", "fail explicitly",
+    "DIAGNOSTIC VS EDIT",
+    "SURFACE ASSUMPTIONS",
+    "UPSTREAM>DOWNSTREAM",
+    "SIMPLICITY",
+    "FAIL EXPLICITLY",
 ]
 
 block_violations = []
@@ -145,16 +146,12 @@ if block_violations:
     )
     for i, v in enumerate(block_violations, 1):
         msg += f"    {i}. {v}\n"
-    msg += (
-        "\n  Fix the issues above, then respond again.\n"
-        + "#" * 60 + "\n"
-    )
+    msg += "\n  Fix the issues above, then respond again.\n" + "#" * 60 + "\n"
     if os.path.exists(MODIFIED_FILE):
         os.remove(MODIFIED_FILE)
     print(msg, flush=True)
     sys.exit(2)
 
-# Non-blocking warnings
 if warn_violations:
     print("\n" + "!" * 55 + "\n  [WARN] " + " | ".join(warn_violations) + "\n" + "!" * 55 + "\n", flush=True)
 
@@ -167,7 +164,7 @@ is_local_command_echo = '<local-command-caveat>' in response_text or '<command-n
 is_trivial_confirm = len(response_text) < 200 and any(x in response_lower for x in ['ok', 'got it', 'sure'])
 
 if not called_skill and not is_local_command_echo and not is_trivial_confirm:
-    block_violations.append("SKILL NOT INVOKED: Skill tool not called this turn.")
+    block_violations.append("SKILL NOT INVOKED.")
 
 # Clarify-before-act
 if re.search(r'[?？]', response_text) and re.search(r'"tool_name"\s*:\s*"(Edit|Write)"', response_text):
@@ -195,11 +192,11 @@ is_short_answer = len(response_text) < 800
 if not is_local_command_echo and not is_trivial_confirm:
     shallow_signals = []
     if has_no_evidence:
-        shallow_signals.append("no tool calls + short response")
+        shallow_signals.append("no tool calls + short")
     if has_should_work and tool_call_count <= 1:
         shallow_signals.append("vague language")
     if is_short_answer and tool_call_count <= 1:
-        shallow_signals.append("very short + no tool calls")
+        shallow_signals.append("very short")
 
     if shallow_signals:
         block_violations.append("SHALLOW RESPONSE: " + "; ".join(shallow_signals))
@@ -219,9 +216,7 @@ has_permission_ask = any(x in response_lower for x in [
 ])
 
 if (declared_override or declared_switch) and not has_permission_ask:
-    block_violations.append(
-        "METHOD OVERRIDE: model changed procedure without asking."
-    )
+    block_violations.append("METHOD OVERRIDE: changed procedure without asking.")
 
 # ==============================
 # PixelLab result reconciliation
@@ -308,6 +303,23 @@ if _cs_modified and _cs_files:
                     os.remove(MODIFIED_FILE)
         except:
             pass
+
+# ==============================
+# Hook integrity self-check
+# ==============================
+
+HOOK_FILES = ["pre_tool_use.py", "post_tool_use.py", "stop_hook.py", "session_start.py"]
+try:
+    HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
+    _missing_hooks = [h for h in HOOK_FILES if not os.path.exists(os.path.join(HOOK_DIR, h))]
+    if _missing_hooks:
+        block_violations.append(
+            "HOOK INTEGRITY FAILED: files missing:\n"
+            + "\n".join(f"  - {h}" for h in _missing_hooks) + "\n\n"
+            "Hooks deleted. Restore with: git checkout .claude/hooks/"
+        )
+except Exception:
+    pass
 
 # Memorialize reminder
 discussion_kw = ["decision", "architecture", "design", "approach"]
